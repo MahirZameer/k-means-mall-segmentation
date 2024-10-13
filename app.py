@@ -4,22 +4,86 @@ from sklearn.cluster import KMeans
 from sklearn.preprocessing import MinMaxScaler
 import matplotlib.pyplot as plt
 
+# Custom CSS to enhance the visual look of the app
+st.markdown("""
+    <style>
+    body {
+        background-color: #2F4F4F;
+        color: #FFFFFF;
+        font-family: 'Arial', sans-serif;
+    }
+    .stButton>button {
+        background-color: #FFA500;
+        color: white;
+        font-size: 18px;
+        border-radius: 5px;
+    }
+    .stTextInput>div>div>input {
+        background-color: #F0F8FF;
+        color: black;
+        font-size: 16px;
+    }
+    .title {
+        font-size: 45px;
+        font-weight: bold;
+        text-align: center;
+        color: #00FA9A;
+    }
+    .header {
+        font-size: 25px;
+        color: #00CED1;
+        font-weight: bold;
+    }
+    .subheader {
+        font-size: 20px;
+        color: #FFF8DC;
+    }
+    .stSelectbox>div>div>div {
+        background-color: #FFE4B5;
+        color: black;
+    }
+    .cluster-result {
+        background-color: #708090;
+        color: white;
+        padding: 10px;
+        border-radius: 10px;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
 # Load the dataset
 df = pd.read_csv('Mall.csv')
 
 # Data Preprocessing
 X = df[['Annual Income (k$)', 'Spending Score (1-100)']].values
 
-# Scale Annual Income and Spending Score without additional custom scaling
+# Scale Annual Income differently to give it more weight
 scaler = MinMaxScaler()
 X_scaled = scaler.fit_transform(X)
 
-# Train the K-Means model
-kmeans = KMeans(n_clusters=5, init='k-means++', random_state=42)
+# Apply custom scaling to the 'Annual Income' feature to weight it more
+X_scaled[:, 0] = X_scaled[:, 0] * 1.5  # Increase weight of Annual Income
+
+# Train the K-Means model with 6 clusters
+kmeans = KMeans(n_clusters=6, init='k-means++', random_state=42)
 labels = kmeans.fit_predict(X_scaled)
 
 # Add the cluster labels to the dataframe
 df['Cluster'] = labels
+
+# Function to adjust clusters based on thresholds
+def adjust_cluster(row):
+    income = row['Annual Income (k$)']
+    spending = row['Spending Score (1-100)']
+    
+    # Adjust Cluster 4 for low-income high-spenders
+    if row['Cluster'] == 4:
+        if spending < 60:
+            return 3  # Re-assign to Cluster 3 if spending doesn't match high-spender description
+    return row['Cluster']
+
+# Apply the adjustment function
+df['Cluster'] = df.apply(adjust_cluster, axis=1)
 
 # Suggested actions based on clusters
 def get_action(cluster):
@@ -33,6 +97,8 @@ def get_action(cluster):
         return "Low-income, low-spender. Suggest budget-friendly deals and value-for-money products."
     elif cluster == 4:
         return "Low-income, high-spender. Suggest customer loyalty programs."
+    elif cluster == 5:
+        return "New Cluster - investigate further."
 
 # Streamlit app interface
 st.markdown("<div class='title'>Mall Customer Segmentation</div>", unsafe_allow_html=True)
@@ -50,7 +116,11 @@ if user_type == "Customer":
     if st.button("Submit"):
         customer_data = pd.DataFrame([[annual_income, spending_score]], columns=['Annual Income (k$)', 'Spending Score (1-100)'])
         customer_scaled = scaler.transform(customer_data)
+        customer_scaled[:, 0] = customer_scaled[:, 0] * 1.5
         customer_cluster = kmeans.predict(customer_scaled)[0]
+
+        # Apply adjustment to the cluster if needed
+        customer_cluster = adjust_cluster(pd.Series({'Annual Income (k$)': annual_income, 'Spending Score (1-100)': spending_score, 'Cluster': customer_cluster}))
 
         st.success(f"Thank you, {name}! Your response has been recorded.")
         st.write(f"You belong to Cluster {customer_cluster}. You will receive marketing emails accordingly.")
