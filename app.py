@@ -4,53 +4,15 @@ from sklearn.cluster import KMeans
 from sklearn.preprocessing import MinMaxScaler
 import matplotlib.pyplot as plt
 
-# Custom CSS to enhance the visual look of the app, including background image from URL
-page_bg_img = '''
-<style>
-body {
-    background-image: url("https://images.pexels.com/photos/2767756/pexels-photo-2767756.jpeg");
-    background-size: cover;
-    background-position: center;
-    background-attachment: fixed;
-}
-.stApp {
-    background: rgba(0, 0, 0, 0.5);
-    padding: 20px;
-    border-radius: 10px;
-}
-.title {
-    font-size: 50px;
-    font-weight: bold;
-    text-align: center;
-    color: #00FA9A;
-    text-transform: uppercase;
-}
-.header {
-    font-size: 25px;
-    color: #00CED1;
-    font-weight: bold;
-}
-.subheader {
-    font-size: 20px;
-    color: #FFF8DC;
-}
-</style>
-'''
-
-st.markdown(page_bg_img, unsafe_allow_html=True)
-
 # Load the dataset
 df = pd.read_csv('Mall.csv')
 
 # Data Preprocessing
 X = df[['Annual Income (k$)', 'Spending Score (1-100)']].values
 
-# Scale Annual Income differently to give it more weight
+# Scale Annual Income and Spending Score without additional custom scaling
 scaler = MinMaxScaler()
 X_scaled = scaler.fit_transform(X)
-
-# Apply custom scaling to the 'Annual Income' feature to weight it more
-X_scaled[:, 0] = X_scaled[:, 0] * 1.5  # Increase weight of Annual Income
 
 # Train the K-Means model
 kmeans = KMeans(n_clusters=5, init='k-means++', random_state=42)
@@ -88,7 +50,6 @@ if user_type == "Customer":
     if st.button("Submit"):
         customer_data = pd.DataFrame([[annual_income, spending_score]], columns=['Annual Income (k$)', 'Spending Score (1-100)'])
         customer_scaled = scaler.transform(customer_data)
-        customer_scaled[:, 0] = customer_scaled[:, 0] * 1.5
         customer_cluster = kmeans.predict(customer_scaled)[0]
 
         st.success(f"Thank you, {name}! Your response has been recorded.")
