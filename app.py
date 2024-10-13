@@ -1,8 +1,5 @@
 import streamlit as st
 import pandas as pd
-from sklearn.cluster import KMeans
-from sklearn.preprocessing import MinMaxScaler
-import matplotlib.pyplot as plt
 
 # Custom CSS to enhance the visual look of the app
 st.markdown("""
@@ -51,54 +48,35 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Load the dataset
-df = pd.read_csv('Mall.csv')
-
-# Data Preprocessing
-X = df[['Annual Income (k$)', 'Spending Score (1-100)']].values
-
-# Scale Annual Income differently to give it more weight
-scaler = MinMaxScaler()
-X_scaled = scaler.fit_transform(X)
-
-# Apply custom scaling to the 'Annual Income' feature to weight it more
-X_scaled[:, 0] = X_scaled[:, 0] * 1.5  # Increase weight of Annual Income
-
-# Train the K-Means model with 6 clusters
-kmeans = KMeans(n_clusters=6, init='k-means++', random_state=42)
-labels = kmeans.fit_predict(X_scaled)
-
-# Add the cluster labels to the dataframe
-df['Cluster'] = labels
-
-# Function to adjust clusters based on thresholds
-def adjust_cluster(row):
-    income = row['Annual Income (k$)']
-    spending = row['Spending Score (1-100)']
-    
-    # Adjust Cluster 4 for low-income high-spenders
-    if row['Cluster'] == 4:
-        if spending < 60:
-            return 3  # Re-assign to Cluster 3 if spending doesn't match high-spender description
-    return row['Cluster']
-
-# Apply the adjustment function
-df['Cluster'] = df.apply(adjust_cluster, axis=1)
+# Function to determine cluster manually based on Annual Income and Spending Score
+def determine_cluster(annual_income, spending_score):
+    if 40 <= annual_income <= 80 and 40 <= spending_score <= 60:
+        return 1  # Cluster 1: Average income, average spender
+    elif annual_income > 80 and spending_score > 60:
+        return 2  # Cluster 2: High income, high spender
+    elif annual_income > 80 and spending_score <= 60:
+        return 3  # Cluster 3: High income, low spender
+    elif annual_income <= 40 and spending_score <= 40:
+        return 4  # Cluster 4: Low income, low spender
+    elif annual_income <= 40 and spending_score > 60:
+        return 5  # Cluster 5: Low income, high spender
+    else:
+        return 0  # Default/fallback cluster
 
 # Suggested actions based on clusters
 def get_action(cluster):
-    if cluster == 0:
+    if cluster == 1:
         return "Average income, average spender. Cautious with spending. Suggest limited-time discounts."
-    elif cluster == 1:
-        return "High-income, high-spender. Suggest VIP offers or exclusive deals to increase spending."
     elif cluster == 2:
-        return "Higher income, low spender. Target with improved store services or offers."
+        return "High-income, high-spender. Suggest VIP offers or exclusive deals to increase spending."
     elif cluster == 3:
-        return "Low-income, low-spender. Suggest budget-friendly deals and value-for-money products."
+        return "Higher income, low spender. Target with improved store services or offers."
     elif cluster == 4:
-        return "Low-income, high-spender. Suggest customer loyalty programs."
+        return "Low-income, low-spender. Suggest budget-friendly deals and value-for-money products."
     elif cluster == 5:
-        return "New Cluster - investigate further."
+        return "Low-income, high-spender. Suggest customer loyalty programs."
+    else:
+        return "Spending behavior doesn't fit predefined actions, needs further analysis."
 
 # Streamlit app interface
 st.markdown("<div class='title'>Mall Customer Segmentation</div>", unsafe_allow_html=True)
@@ -114,13 +92,7 @@ if user_type == "Customer":
     spending_score = st.slider("Spending Score (1-100)", 0, 100, 50)
 
     if st.button("Submit"):
-        customer_data = pd.DataFrame([[annual_income, spending_score]], columns=['Annual Income (k$)', 'Spending Score (1-100)'])
-        customer_scaled = scaler.transform(customer_data)
-        customer_scaled[:, 0] = customer_scaled[:, 0] * 1.5
-        customer_cluster = kmeans.predict(customer_scaled)[0]
-
-        # Apply adjustment to the cluster if needed
-        customer_cluster = adjust_cluster(pd.Series({'Annual Income (k$)': annual_income, 'Spending Score (1-100)': spending_score, 'Cluster': customer_cluster}))
+        customer_cluster = determine_cluster(annual_income, spending_score)
 
         st.success(f"Thank you, {name}! Your response has been recorded.")
         st.write(f"You belong to Cluster {customer_cluster}. You will receive marketing emails accordingly.")
